@@ -15,6 +15,7 @@ dotenv.config()
 app.use(express.json())
 app.use(cookieParser())
 
+app.get("/", (_req, res) => res.status(200).json({ status: "ok" }))
 app.get("/openapi.json", (_req, res) => res.json(openapi))
 app.use("/docs", apiReference({ url: "/openapi.json" }))
 

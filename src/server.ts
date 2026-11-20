@@ -3,8 +3,8 @@ import { connectDb } from "./utils/connectDb.ts"
 
 
 
-const port = process.env.PORT || 3000
+const port = Number(process.env.PORT || 3000)
 connectDb()
-app.listen(port, ()=> {
+app.listen(port, "0.0.0.0", ()=> {
     console.log(`listening on careeros server at ${port}`)
 })
