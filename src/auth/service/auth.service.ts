@@ -1,6 +1,6 @@
 import { UserAlreadyExistError } from "../../shared/errors/HttpErrors.ts";
 import User from "../model/user.model.ts";
-import type { CreateUserInput } from "../schemas/user.schema.ts";
+import type { CreateUserInput, ForgotPasswordRequestInput } from "../schemas/user.schema.ts";
 import { hashPassword } from "../../utils/password.ts";
 import type { IUser, LoginResponse, UserResponse } from "../types/user.types.ts";
 import { createVericationToken } from "../../utils/createVerifyToken.ts";
@@ -11,8 +11,9 @@ import { AppError } from "../../shared/errors/AppError.ts";
 import { InvalidCredentials } from "../../shared/errors/HttpErrors.ts";
 import { UserRole } from "../types/user.types.ts";
 import { sendTransactionalEmail } from "../../mail/brevo/service/transactional.service.ts";
-import { verifyEmailTemplate } from "../../mail/brevo/templates/emailVerificationTemplate.template.ts";
-
+import { sendResetPasswordToken, verifyEmailTemplate } from "../../mail/brevo/templates/emailVerificationTemplate.template.ts";
+import type{ VerifyEmailInput } from "../schemas/user.schema.ts";
+import { hashedOtp } from "../../utils/otp.ts";
 
 
 export const registerUser = async (data: CreateUserInput): Promise<UserResponse> => {
@@ -32,7 +33,7 @@ export const registerUser = async (data: CreateUserInput): Promise<UserResponse>
         role,
         password: hashedPassword,
         verificationToken: token,
-        verificationTokenExpiresAt: expiresAt.toString()
+        verificationTokenExpiresAt: expiresAt ? expiresAt.toString() : ""
     }
     const user = await User.create(newUser);
     await sendTransactionalEmail({ toEmail: email, toName: fullName, emailSubject: "", htmlContent: verifyEmailTemplate(fullName, token) })
@@ -64,3 +65,55 @@ export const loginUser = async (data: LoginUserInput): Promise<LoginResponse> =>
 }
 
 
+export const verifyEmail = async (data: VerifyEmailInput): Promise<void> => {
+    const {code} = data;
+    const now = Date.now().toString();
+    const user = await User.findOne({verificationToken: code, verificationTokenExpiresAt: {$gt: now}}); 
+
+    if(!user){
+        throw new UserNotExistError()
+    }
+
+    if(user.isEmailVerified){
+        throw new AppError("email already verified", 400)
+    }
+
+    user.isEmailVerified = true; 
+    user.verificationToken = "";
+    user.verificationTokenExpiresAt = "";
+    await user.save() 
+}
+
+
+// export const sendResetPassord = async (data: ResetPasswordRequestInput): Promise<void> => {
+//     const {email} = data;
+
+//     const isEmailExist = await User.findOne({email}); 
+
+//     if(isEmailExist) {
+//         await 
+//     }
+// } 
+
+
+export const forgotPassword = async (data: ForgotPasswordRequestInput) : Promise<void> => {
+
+    const {email} = data
+    const user = await User.findOne({email}); 
+    if(!user) return;
+
+
+    const {otp, hashOtp} = await hashedOtp(); 
+    const {expiresAt} = createVericationToken(); 
+
+    user.resetPasswordTokenHashed = hashOtp; 
+    user.resetPasswordTokenExpiresAt = expiresAt ? expiresAt.toString() : ""; 
+    user. resetPasswordCount =  0; 
+
+
+    user.passwordResetTokenHashed = ""; 
+    user.passwordResetTokenExpiresAt = "";
+
+    await sendTransactionalEmail({toEmail: email, toName: user.fullName, emailSubject: "", htmlContent:sendResetPasswordToken(user.fullName,otp )})
+
+}

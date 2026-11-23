@@ -3,7 +3,7 @@ import crypto from "crypto"
 
 interface CreateVerificationTokenResponse  {
     token: string
-    expiresAt: Date
+    expiresAt?: Date
 }
 
 export  function createVericationToken(expiresIn: number = 10): CreateVerificationTokenResponse {

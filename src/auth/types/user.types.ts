@@ -6,10 +6,20 @@ export interface IUser {
     email:string 
     password:string
     role:string, 
-    resetPasswordToken?: string
+
+
+    resetPasswordCount?: Number
+    resetPasswordTokenHashed?: string
     resetPasswordTokenExpiresAt?:string 
+
+
+    passwordResetTokenHashed?: string, 
+    passwordResetTokenExpiresAt?: string,
+
     verificationToken:string
     verificationTokenExpiresAt: string
+
+    isEmailVerified?: boolean
     createdAt?: string
     updatedAt?: string
     

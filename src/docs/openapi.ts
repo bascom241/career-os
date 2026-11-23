@@ -1,8 +1,8 @@
 import { z } from "zod"
-import { createUserSchema, loginUserSchema } from "../auth/schemas/user.schema.ts"
+import { createUserSchema, forgotPasswordSchema, loginUserSchema } from "../auth/schemas/user.schema.ts"
 
 // Keep request constraints in the validators; OpenAPI renders those same schemas.
-const requestSchema = (schema: typeof createUserSchema.shape.body | typeof loginUserSchema.shape.body) =>
+const requestSchema = (schema: typeof createUserSchema.shape.body | typeof loginUserSchema.shape.body | typeof forgotPasswordSchema.shape.body) =>
     z.toJSONSchema(schema, { target: "draft-2020-12", io: "input" })
 
 const jsonResponse = (description: string, schema: object, example: object) => ({
@@ -59,11 +59,24 @@ export const openapi = {
                 },
             },
         },
+        "/api/v1/auth/forgot-password": {
+            post: {
+                tags: ["Authentication"], operationId: "forgotPassword", summary: "Request a password reset code",
+                description: "Sends a password reset code by email if an account exists for the supplied address. The response does not disclose whether the account exists.",
+                requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/ForgotPasswordRequest" }, example: { email: "alex@example.com" } } } },
+                responses: {
+                    "200": jsonResponse("Password reset request accepted.", { $ref: "#/components/schemas/ForgotPasswordResponse" }, { success: true, message: "If the email exists, a password reset code has been sent." }),
+                    "400": validationResponse,
+                    "500": serverErrorResponse,
+                },
+            },
+        },
     },
     components: {
         schemas: {
             RegisterRequest: requestSchema(createUserSchema.shape.body),
             LoginRequest: requestSchema(loginUserSchema.shape.body),
+            ForgotPasswordRequest: requestSchema(forgotPasswordSchema.shape.body),
             RegisterResponse: {
                 type: "object", required: ["success", "message", "data"], properties: {
                     success: { type: "boolean", const: true }, message: { type: "string" },
@@ -71,6 +84,7 @@ export const openapi = {
                 },
             },
             LoginResponse: { type: "object", required: ["success", "message"], properties: { success: { type: "boolean", const: true }, message: { type: "string" } } },
+            ForgotPasswordResponse: { type: "object", required: ["success", "message"], properties: { success: { type: "boolean", const: true }, message: { type: "string" } } },
             Error: { type: "object", required: ["success", "message"], properties: { success: { type: "boolean", const: false }, message: { type: "string" } } },
             ValidationError: { type: "object", required: ["success", "errors"], properties: { success: { type: "boolean", const: false }, errors: { type: "array", items: { type: "object", required: ["path", "message"], properties: { path: { type: "string" }, message: { type: "string" } } } } } },
         },

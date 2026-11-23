@@ -21,8 +21,14 @@ const userSchema = new Schema<IUser>({
         enum:Object.values(UserRole), 
         default: UserRole.CANDIDATE
     }, 
-    resetPasswordToken: String, 
+    isEmailVerified: Boolean, 
+    
+    resetPasswordTokenHashed : String, 
     resetPasswordTokenExpiresAt:String, 
+    resetPasswordCount: Number,
+
+    passwordResetTokenHashed: String, 
+    passwordResetTokenExpiresAt: String,
     verificationToken:String, 
     verificationTokenExpiresAt: String
 

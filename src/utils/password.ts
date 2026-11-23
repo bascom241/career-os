@@ -20,3 +20,4 @@ export async function verifyPassword (password: string, storedHash: string ): Pr
     const derivedKey: any = await scryptSync(password, salt, 64);
     return crypto.timingSafeEqual(keyBuffer, derivedKey);
 }
+
