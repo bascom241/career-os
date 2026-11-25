@@ -2,6 +2,8 @@
 
 All routes require a verified session cookie. Candidate routes require the candidate role; admin routes require an existing account with the `admin` role. Public registration must not be used to grant admin access. The API reference is available at `/docs`.
 
+For sample requests and testing steps for every endpoint, including authentication, see [API testing examples](API_TESTING.md).
+
 ## Getting started
 
 The base path is `/api/v1`. Register through `POST /auth/register`, verify the six-digit email code through `POST /auth/verify`, then sign in through `POST /auth/login`. Login sets the `jwt` HTTP-only cookie. Send that cookie with subsequent requests; browser clients must configure credentials and deployment CORS appropriately. Verification itself does not sign the user in. A candidate account is created by passing `"role": "candidate"` and the required consent object during registration. See `/docs` for the full auth request schemas.

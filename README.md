@@ -25,6 +25,7 @@ Use a MongoDB instance reachable by the server. Referral redemption requires tra
 ## Documentation
 
 - Interactive OpenAPI reference: `/docs`; machine-readable specification: `/openapi.json`.
+- [API testing examples](API_TESTING.md) gives sample requests and responses for every implemented endpoint.
 - [Candidate profile, uploads and membership API](CANDIDATE_MEMBERSHIP_API.md) describes implemented behavior, examples and known limitations.
 - [Candidate registration implementation guide](CANDIDATE_REGISTRATION_API_GUIDE.md) is a planning document. Its proposed contracts are not all implemented; use the candidate API guide and OpenAPI for the current contract.
 

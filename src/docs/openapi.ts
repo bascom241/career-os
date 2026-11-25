@@ -3,6 +3,7 @@ import { createUserSchema, loginUserSchema, verifyEmailSchema, forgotPasswordSch
 import { candidateProfileSchema } from "../features/candidate/schemas/candidate.schema.ts";
 import { referralSchema, reviewSchema } from "../features/membership/schemas/membership.schema.ts";
 import { candidateResponses } from "./candidate-responses.ts";
+import { apiExamples } from "./api-examples.ts";
 const json = (schema: object) => ({ "application/json": { schema } });
 const error = { description: "Error", content: json({ $ref: "#/components/schemas/Error" }) };
 const errors = { "400": error, "401": error, "403": error, "404": error, "409": error, "413": error, "415": error, "429": { ...error, headers: { "Retry-After": { schema: { type: "integer" } } } }, "500": error, "503": error };
@@ -39,3 +40,19 @@ export const openapi = {
  },
  components: { securitySchemes: { cookieAuth: { type: "apiKey", in: "cookie", name: "jwt" } }, schemas: { Error: { type: "object", required: ["success", "code", "message"], properties: { success: { const: false }, code: { type: "string" }, message: { type: "string" }, details: { type: "array", items: { type: "object", properties: { path: { type: "string" }, message: { type: "string" } } } } } } } }
 };
+
+// Add examples to the interactive reference while keeping validation schemas as the source of truth.
+for (const [path, methods] of Object.entries(openapi.paths)) {
+ for (const [method, value] of Object.entries(methods)) {
+  const example = apiExamples[`${method.toUpperCase()} ${path}`];
+  if (!example) continue;
+  const operation = value as unknown as { requestBody?: { content: Record<string, { example?: object }> }; responses: Record<string, { description: string; content?: Record<string, { schema?: object; example?: object }> }> };
+  if (example.body && operation.requestBody?.content["application/json"]) operation.requestBody.content["application/json"].example = example.body;
+  const response = operation.responses[example.status ?? "200"];
+  if (response) {
+   response.content ??= {};
+   response.content["application/json"] ??= {};
+   response.content["application/json"].example = example.response;
+  }
+ }
+}
