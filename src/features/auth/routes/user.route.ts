@@ -1,9 +1,9 @@
 import express from "express"
 const router = express.Router(); 
 import { register, login, verify, forgot, reset, logout, currentUser, resendVerify, refresh} from "../controller/auth.controller.ts";
-import { rateLimit } from "../../middlewares/rate-limit.middleware.ts";
-import { authenticate } from "../../middlewares/auth.middleware.ts";
-import { validate } from "../../middlewares/validate.middleware.ts";
+import { rateLimit } from "../../../middlewares/rate-limit.middleware.ts";
+import { authenticate } from "../../../middlewares/auth.middleware.ts";
+import { validate } from "../../../middlewares/validate.middleware.ts";
 import { createUserSchema, forgotPasswordSchema, loginUserSchema, verifyEmailSchema, resetPasswordSchema } from "../schemas/user.schema.ts";
 
 router.post("/register", validate(createUserSchema), rateLimit("register", 5), register)

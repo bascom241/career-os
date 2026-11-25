@@ -1,13 +1,13 @@
 import express from "express"
 import cookieParser from "cookie-parser"
 import { errorHandler } from "./middlewares/error.middleware.ts"
-import authRouter from "./auth/routes/user.route.ts"
+import authRouter from "./features/auth/routes/user.route.ts"
 import type { NextFunction, Request, Response } from "express"
 import { apiReference } from "@scalar/express-api-reference"
 import { openapi } from "./docs/openapi.ts"
 import dotenv from "dotenv"
 import { authenticate } from "./middlewares/auth.middleware.ts"
-import { currentUser } from "./auth/controller/auth.controller.ts"
+import { currentUser } from "./features/auth/controller/auth.controller.ts"
 import { AppError } from "./shared/errors/AppError.ts"
 
 

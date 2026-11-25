@@ -1,7 +1,7 @@
 import type { Response, Request } from "express";
 import type{ NextFunction } from "express";
 import type { CreateUserInput, ForgotPasswordRequestInput, LoginUserInput, VerifyEmailInput } from "../schemas/user.schema.ts";
-import { generateTokenAndSetCookie } from "../../utils/generateToken.ts";
+import { generateTokenAndSetCookie } from "../../../utils/generateToken.ts";
 import User from "../model/user.model.ts";
 import { registerUser, loginUser, verifyEmail, forgotPassword, resetPassword, resendVerification } from "../service/auth.service.ts";
 

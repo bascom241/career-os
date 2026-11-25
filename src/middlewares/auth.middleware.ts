@@ -1,8 +1,8 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
-import User from "../auth/model/user.model.ts";
-import { publicUser } from "../auth/service/auth.service.ts";
+import User from "../features/auth/model/user.model.ts";
+import { publicUser } from "../features/auth/service/auth.service.ts";
 import { AppError } from "../shared/errors/AppError.ts";
 
 /** Authenticate the HTTP-only session cookie and expose only public account fields. */

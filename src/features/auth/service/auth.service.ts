@@ -1,21 +1,21 @@
-import { UserAlreadyExistError } from "../../shared/errors/HttpErrors.ts";
+import { UserAlreadyExistError } from "../../../shared/errors/HttpErrors.ts";
 import User from "../model/user.model.ts";
 import type { CreateUserInput, ForgotPasswordRequestInput } from "../schemas/user.schema.ts";
-import { hashPassword } from "../../utils/password.ts";
+import { hashPassword } from "../../../utils/password.ts";
 import type { IUser, LoginResponse, UserResponse } from "../types/user.types.ts";
-import { createVericationToken } from "../../utils/createVerifyToken.ts";
+import { createVericationToken } from "../../../utils/createVerifyToken.ts";
 import type { LoginUserInput } from "../schemas/user.schema.ts";
-import { UserNotExistError } from "../../shared/errors/HttpErrors.ts";
-import { verifyPassword } from "../../utils/password.ts";
-import { AppError } from "../../shared/errors/AppError.ts";
-import { InvalidCredentials } from "../../shared/errors/HttpErrors.ts";
+import { UserNotExistError } from "../../../shared/errors/HttpErrors.ts";
+import { verifyPassword } from "../../../utils/password.ts";
+import { AppError } from "../../../shared/errors/AppError.ts";
+import { InvalidCredentials } from "../../../shared/errors/HttpErrors.ts";
 import { UserRole } from "../types/user.types.ts";
-import { sendTransactionalEmail } from "../../mail/brevo/service/transactional.service.ts";
-import { sendResetPasswordToken, verifyEmailTemplate } from "../../mail/brevo/templates/emailVerificationTemplate.template.ts";
+import { sendTransactionalEmail } from "../../../mail/brevo/service/transactional.service.ts";
+import { sendResetPasswordToken, verifyEmailTemplate } from "../../../mail/brevo/templates/emailVerificationTemplate.template.ts";
 import type{ VerifyEmailInput } from "../schemas/user.schema.ts";
 import crypto from "crypto";
 import type { ResetPasswordInput } from "../schemas/user.schema.ts";
-import { hashedOtp } from "../../utils/otp.ts";
+import { hashedOtp } from "../../../utils/otp.ts";
 
 
 export function publicUser(user: { _id: { toString(): string }; fullName: string; email: string; role: string; roles?: string[]; isEmailVerified?: boolean }) {

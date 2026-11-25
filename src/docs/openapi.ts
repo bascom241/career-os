@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createUserSchema, loginUserSchema, verifyEmailSchema, forgotPasswordSchema, resetPasswordSchema } from "../auth/schemas/user.schema.ts";
+import { createUserSchema, loginUserSchema, verifyEmailSchema, forgotPasswordSchema, resetPasswordSchema } from "../features/auth/schemas/user.schema.ts";
 const json = (schema: object) => ({ "application/json": { schema } });
 const error = { description: "Error", content: json({ $ref: "#/components/schemas/Error" }) };
 const errors = { "400": error, "401": error, "403": error, "404": error, "413": error, "415": error, "429": { ...error, headers: { "Retry-After": { schema: { type: "integer" } } } }, "500": error, "503": error };
