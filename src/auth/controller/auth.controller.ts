@@ -2,22 +2,14 @@ import type { Response, Request } from "express";
 import type{ NextFunction } from "express";
 import type { CreateUserInput, ForgotPasswordRequestInput, LoginUserInput, VerifyEmailInput } from "../schemas/user.schema.ts";
 import { generateTokenAndSetCookie } from "../../utils/generateToken.ts";
-import { registerUser, loginUser, verifyEmail, forgotPassword } from "../service/auth.service.ts";
+import User from "../model/user.model.ts";
+import { registerUser, loginUser, verifyEmail, forgotPassword, resetPassword, resendVerification } from "../service/auth.service.ts";
 
 
 export async function register (req: Request, res: Response, next: NextFunction) {
     try{
-        const {fullName , email , password, role} = req.body
-        const dataToSend : CreateUserInput = {
-            fullName, 
-            email, 
-            password, 
-            role
-        }; 
-        const data = await registerUser(dataToSend); 
-        const {id} = data;
-        generateTokenAndSetCookie(res, id); 
-        res.status(201).json({success:true, message: "user created successfully", data})
+        await registerUser(req.body);
+        res.status(202).json({ success: true, message: "If registration can be completed, check your email for a verification code." });
     }catch(error: any){
         next(error)
     }
@@ -31,9 +23,9 @@ export async function login (req:Request , res:Response, next: NextFunction) {
             password
         }
         const data = await loginUser(dataToSend); 
-        const {id} = data; 
-        generateTokenAndSetCookie(res, id); 
-        res.status(200).json({success: true, message: "login successfully"})
+        const {id, tokenVersion} = data; 
+        generateTokenAndSetCookie(res, id, tokenVersion); 
+        res.status(200).json({success: true, message: "login successfully", data: data.user})
     } catch (error) {
         next(error)
     }
@@ -42,9 +34,9 @@ export async function login (req:Request , res:Response, next: NextFunction) {
 
 export async function verify(req: Request, res: Response, next:NextFunction) {
     try{
-        const {code} = req.body; 
+        const {code, email} = req.body; 
         const dataToSend: VerifyEmailInput = {
-            code
+            code, email
         }; 
 
         await verifyEmail(dataToSend);
@@ -66,4 +58,30 @@ export async function forgot (req: Request, res: Response, next:NextFunction) {
     }catch(err){
         next(err)
     }
+}
+export async function reset(req: Request, res: Response, next: NextFunction) {
+    try { await resetPassword(req.body); res.json({ success: true, message: "Password reset successfully" }); } catch (error) { next(error); }
+}
+export async function logout(_req: Request, res: Response, next: NextFunction) {
+    try {
+        await User.updateOne({ _id: res.locals.user.id }, { $inc: { tokenVersion: 1 } });
+        res.clearCookie("jwt", { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" });
+        res.json({ success: true, message: "Logged out successfully" });
+    } catch (error) { next(error); }
+}
+
+export function currentUser(_req: Request, res: Response) {
+    res.json({ success: true, data: res.locals.user });
+}
+
+export async function resendVerify(_req: Request, res: Response, next: NextFunction) {
+    try {
+        await resendVerification(_req.body.email);
+        res.json({ success: true, message: "If the account needs verification, a code has been sent." });
+    } catch (error) { next(error); }
+}
+
+export function refresh(_req: Request, res: Response) {
+    generateTokenAndSetCookie(res, res.locals.user.id, res.locals.tokenVersion);
+    res.json({ success: true, data: res.locals.user });
 }

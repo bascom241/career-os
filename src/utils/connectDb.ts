@@ -1,24 +1,11 @@
-import { AppError } from "../shared/errors/AppError.ts";
 import mongoose from "mongoose";
 export const connectDb = async () => {
-
-    const localUrI = process.env.mongo_url;
-    const remoteUrI = process.env.live_mongo_url; 
-    const devEnv = process.env.NODE_ENV
-    try{
-        if(!localUrI || !remoteUrI){
-            throw new AppError(devEnv === "production" ? "internal server error" : "Env secret not configured")
-        }
-
-        if(devEnv === "production"){
-            await mongoose.connect(remoteUrI)
-            console.log("Connected to Database")
-        } else {
-            await mongoose.connect(localUrI)
-            console.log("connected to database")
-        } 
-    
-    }catch(err){
-        console.log(err)
+    const uri = process.env.NODE_ENV === "production" ? process.env.live_mongo_url : process.env.mongo_url;
+    if (!uri) throw new Error("Database URL is not configured");
+    await mongoose.connect(uri);
+    const indexes = await mongoose.connection.collection("users").indexes().catch((error: { codeName?: string }) => { if (error.codeName === "NamespaceNotFound") return []; throw error; });
+    if (!indexes.some(index => index.key?.email === 1 && Object.keys(index.key).length === 1 && index.unique === true)) {
+        throw new Error("Unique email index missing; run the email migration before starting the server");
     }
-}
+    console.log("Connected to database");
+};

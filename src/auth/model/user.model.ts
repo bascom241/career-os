@@ -8,7 +8,8 @@ const userSchema = new Schema<IUser>({
     }, 
     email:{
         type: String, 
-        required: [true, "email is required"]
+        required: [true, "email is required"],
+        unique: true, lowercase: true, trim: true
     }, 
     password:{
         type: String, 
@@ -18,10 +19,13 @@ const userSchema = new Schema<IUser>({
     role: {
         type: String, 
         required: [true, "role is required"], 
-        enum:Object.values(UserRole), 
+        enum:[...Object.values(UserRole), "talent", "freelancer", "coach", "instructor"], 
         default: UserRole.CANDIDATE
     }, 
-    isEmailVerified: Boolean, 
+    roles: { type: [String], default: [] },
+    consentRecords: [{ termsVersion: String, privacyVersion: String, acceptedAt: Date, _id: false }],
+    isEmailVerified: { type: Boolean, default: false },
+    tokenVersion: { type: Number, default: 0 }, 
     
     resetPasswordTokenHashed : String, 
     resetPasswordTokenExpiresAt:String, 
@@ -32,7 +36,7 @@ const userSchema = new Schema<IUser>({
     verificationToken:String, 
     verificationTokenExpiresAt: String
 
-}, {timestamps: true })
+}, {timestamps: true, autoIndex: false })
 
 
 const User = mongoose.model<IUser>("User", userSchema)

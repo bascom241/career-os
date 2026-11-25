@@ -13,7 +13,7 @@ export class UserNotExistError extends AppError {
 }
 
 export class InvalidCredentials extends AppError {
-    constructor(message = "invalid password provided")  {
+    constructor(message = "Invalid email or password")  {
         super(message, 401)
         
     }

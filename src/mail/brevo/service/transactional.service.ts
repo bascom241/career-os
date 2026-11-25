@@ -3,16 +3,16 @@ import type { EmailResult } from "../../mail.type.ts";
 export async function sendTransactionalEmail({ toEmail, toName, emailSubject, htmlContent }: SendEmailParams): Promise<EmailResult> {
     try {
         
-        const response = await fetch("/", {
+        const response = await fetch("https://api.brevo.com/v3/smtp/email", {
             method: "POST",
             headers: {
                 "accept": "application/json",
-                "api_key": process.env.BREVO_KEY ?? "",
+                "api-key": process.env.BREVO_KEY ?? "",
                 "content-type": "application/json"
             },
             body: JSON.stringify({
                 sender: {
-                    name: process.env.BREV0_SENDER_NAME,
+                    name: process.env.BREVO_SENDER_NAME ?? process.env.BREV0_SENDER_NAME,
                     email: process.env.BREVO_SENDER_MAIL
                 },
                 to: [{

@@ -13,17 +13,20 @@ import { UserRole } from "../types/user.types.ts";
 import { sendTransactionalEmail } from "../../mail/brevo/service/transactional.service.ts";
 import { sendResetPasswordToken, verifyEmailTemplate } from "../../mail/brevo/templates/emailVerificationTemplate.template.ts";
 import type{ VerifyEmailInput } from "../schemas/user.schema.ts";
+import crypto from "crypto";
+import type { ResetPasswordInput } from "../schemas/user.schema.ts";
 import { hashedOtp } from "../../utils/otp.ts";
 
 
-export const registerUser = async (data: CreateUserInput): Promise<UserResponse> => {
-    const { fullName, email, password, role } = data;
-    if (role === UserRole.ADMIN) {
-        throw new AppError("admin role cannot be set", 404)
-    }
+export function publicUser(user: { _id: { toString(): string }; fullName: string; email: string; role: string; roles?: string[]; isEmailVerified?: boolean }) {
+    return { id: user._id.toString(), fullName: user.fullName, email: user.email, role: user.role, roles: user.roles?.length ? user.roles : [user.role], isEmailVerified: user.isEmailVerified ?? false, entitlements: [] as string[] };
+}
+
+export const registerUser = async (data: CreateUserInput): Promise<UserResponse | undefined> => {
+    const { fullName, email, password, role, consent } = data;
     const isUserExist = await User.findOne({ email });
     if (isUserExist) {
-        throw new UserAlreadyExistError()
+        return undefined
     }
     const hashedPassword = await hashPassword(password);
     const { token, expiresAt } = createVericationToken();
@@ -31,12 +34,16 @@ export const registerUser = async (data: CreateUserInput): Promise<UserResponse>
         fullName,
         email,
         role,
+        roles: [role],
+        consentRecords: [{ termsVersion: consent.termsVersion, privacyVersion: consent.privacyVersion, acceptedAt: new Date() }],
         password: hashedPassword,
         verificationToken: token,
         verificationTokenExpiresAt: expiresAt ? expiresAt.toString() : ""
     }
-    const user = await User.create(newUser);
-    await sendTransactionalEmail({ toEmail: email, toName: fullName, emailSubject: "", htmlContent: verifyEmailTemplate(fullName, token) })
+    let user;
+    try { user = await User.create(newUser); } catch (error) { if ((error as { code?: number }).code === 11000) return undefined; throw error; }
+    const delivery = await sendTransactionalEmail({ toEmail: email, toName: fullName, emailSubject: "Verify your email", htmlContent: verifyEmailTemplate(fullName, token) });
+    if (!delivery.success) { await User.deleteOne({ _id: user._id }); console.error("Registration verification email delivery failed"); return undefined; }
     if (!user) {
         throw new Error("failed to create user")
     }
@@ -53,25 +60,23 @@ export const loginUser = async (data: LoginUserInput): Promise<LoginResponse> =>
     const { email, password } = data
     const user = await User.findOne({ email });
     if (!user) {
-        throw new UserNotExistError()
+        throw new InvalidCredentials()
     }
     const isPasswordCorrect = await verifyPassword(password, user.password);
     if (!isPasswordCorrect) {
         throw new InvalidCredentials()
     }
-    return {
-        id: user._id.toString()
-    }
+    if (!user.isEmailVerified) throw new AppError("Verify your email before signing in", 403);
+    return { id: user._id.toString(), tokenVersion: user.tokenVersion ?? 0, user: publicUser(user) };
 }
 
 
 export const verifyEmail = async (data: VerifyEmailInput): Promise<void> => {
-    const {code} = data;
-    const now = Date.now().toString();
-    const user = await User.findOne({verificationToken: code, verificationTokenExpiresAt: {$gt: now}}); 
+    const {code, email} = data;
+    const user = await User.findOne({email, verificationToken: code}); 
 
-    if(!user){
-        throw new UserNotExistError()
+    if(!user || !user.verificationTokenExpiresAt || new Date(user.verificationTokenExpiresAt).getTime() <= Date.now()){
+        throw new AppError("Invalid or expired verification code", 400)
     }
 
     if(user.isEmailVerified){
@@ -83,17 +88,6 @@ export const verifyEmail = async (data: VerifyEmailInput): Promise<void> => {
     user.verificationTokenExpiresAt = "";
     await user.save() 
 }
-
-
-// export const sendResetPassord = async (data: ResetPasswordRequestInput): Promise<void> => {
-//     const {email} = data;
-
-//     const isEmailExist = await User.findOne({email}); 
-
-//     if(isEmailExist) {
-//         await 
-//     }
-// } 
 
 
 export const forgotPassword = async (data: ForgotPasswordRequestInput) : Promise<void> => {
@@ -114,6 +108,38 @@ export const forgotPassword = async (data: ForgotPasswordRequestInput) : Promise
     user.passwordResetTokenHashed = ""; 
     user.passwordResetTokenExpiresAt = "";
 
-    await sendTransactionalEmail({toEmail: email, toName: user.fullName, emailSubject: "", htmlContent:sendResetPasswordToken(user.fullName,otp )})
+    await user.save();
+    const delivery = await sendTransactionalEmail({toEmail: email, toName: user.fullName, emailSubject: "Reset your password", htmlContent:sendResetPasswordToken(user.fullName,otp )});
+    if (!delivery.success) { console.error("Password reset email delivery failed"); }
 
 }
+export const resetPassword = async ({ email, code, password }: ResetPasswordInput): Promise<void> => {
+    const secret = process.env.OTP_SECRET;
+    if (!secret) throw new AppError("OTP secret is not configured", 500);
+    const user = await User.findOne({ email });
+    const invalid = () => new AppError("Invalid or expired reset code", 400);
+    if (!user || !user.resetPasswordTokenHashed || !user.resetPasswordTokenExpiresAt || new Date(user.resetPasswordTokenExpiresAt).getTime() <= Date.now() || Number(user.resetPasswordCount ?? 0) >= 5) throw invalid();
+    const hash = crypto.createHmac("sha256", secret).update(code).digest("hex");
+    if (hash !== user.resetPasswordTokenHashed) {
+        user.resetPasswordCount = Number(user.resetPasswordCount ?? 0) + 1;
+        await user.save();
+        throw invalid();
+    }
+    user.password = await hashPassword(password);
+    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
+    user.resetPasswordTokenHashed = "";
+    user.resetPasswordTokenExpiresAt = "";
+    user.resetPasswordCount = 0;
+    await user.save();
+}
+
+export const resendVerification = async (email: string): Promise<void> => {
+    const user = await User.findOne({ email });
+    if (!user || user.isEmailVerified) return;
+    const { token, expiresAt } = createVericationToken();
+    user.verificationToken = token;
+    user.verificationTokenExpiresAt = expiresAt?.toString() ?? "";
+    await user.save();
+    const delivery = await sendTransactionalEmail({ toEmail: user.email, toName: user.fullName, emailSubject: "Verify your email", htmlContent: verifyEmailTemplate(user.fullName, token) });
+    if (!delivery.success) console.error("Verification email delivery failed");
+};

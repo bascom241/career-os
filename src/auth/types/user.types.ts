@@ -19,6 +19,9 @@ export interface IUser {
     verificationToken:string
     verificationTokenExpiresAt: string
 
+    roles?: string[]
+    consentRecords?: { termsVersion: string; privacyVersion: string; acceptedAt: Date }[]
+    tokenVersion?: number
     isEmailVerified?: boolean
     createdAt?: string
     updatedAt?: string
@@ -35,6 +38,8 @@ export interface UserResponse {
 
 export interface LoginResponse {
     id: string
+    tokenVersion: number
+    user: { id: string; fullName: string; email: string; role: string; roles: string[]; isEmailVerified: boolean; entitlements: string[] }
 }
 
 export const UserRole = {
