@@ -1,15 +1,12 @@
-import { UserAlreadyExistError } from "../../../shared/errors/HttpErrors.ts";
 import User from "../model/user.model.ts";
 import type { CreateUserInput, ForgotPasswordRequestInput } from "../schemas/user.schema.ts";
 import { hashPassword } from "../../../utils/password.ts";
 import type { IUser, LoginResponse, UserResponse } from "../types/user.types.ts";
-import { createVericationToken } from "../../../utils/createVerifyToken.ts";
+import { createVerificationToken } from "../../../utils/createVerificationToken.ts";
 import type { LoginUserInput } from "../schemas/user.schema.ts";
-import { UserNotExistError } from "../../../shared/errors/HttpErrors.ts";
 import { verifyPassword } from "../../../utils/password.ts";
 import { AppError } from "../../../shared/errors/AppError.ts";
 import { InvalidCredentials } from "../../../shared/errors/HttpErrors.ts";
-import { UserRole } from "../types/user.types.ts";
 import { sendTransactionalEmail } from "../../../mail/brevo/service/transactional.service.ts";
 import { sendResetPasswordToken, verifyEmailTemplate } from "../../../mail/brevo/templates/emailVerificationTemplate.template.ts";
 import type{ VerifyEmailInput } from "../schemas/user.schema.ts";
@@ -29,7 +26,7 @@ export const registerUser = async (data: CreateUserInput): Promise<UserResponse 
         return undefined
     }
     const hashedPassword = await hashPassword(password);
-    const { token, expiresAt } = createVericationToken();
+    const { token, expiresAt } = createVerificationToken();
     const newUser: IUser = {
         fullName,
         email,
@@ -75,7 +72,8 @@ export const verifyEmail = async (data: VerifyEmailInput): Promise<void> => {
     const {code, email} = data;
     const user = await User.findOne({email, verificationToken: code}); 
 
-    if(!user || !user.verificationTokenExpiresAt || new Date(user.verificationTokenExpiresAt).getTime() <= Date.now()){
+    const expiresAt = user?.verificationTokenExpiresAt ? new Date(user.verificationTokenExpiresAt).getTime() : NaN;
+    if(!user || !Number.isFinite(expiresAt) || expiresAt <= Date.now()){
         throw new AppError("Invalid or expired verification code", 400)
     }
 
@@ -98,7 +96,7 @@ export const forgotPassword = async (data: ForgotPasswordRequestInput) : Promise
 
 
     const {otp, hashOtp} = await hashedOtp(); 
-    const {expiresAt} = createVericationToken(); 
+    const {expiresAt} = createVerificationToken();
 
     user.resetPasswordTokenHashed = hashOtp; 
     user.resetPasswordTokenExpiresAt = expiresAt ? expiresAt.toString() : ""; 
@@ -118,25 +116,26 @@ export const resetPassword = async ({ email, code, password }: ResetPasswordInpu
     if (!secret) throw new AppError("OTP secret is not configured", 500);
     const user = await User.findOne({ email });
     const invalid = () => new AppError("Invalid or expired reset code", 400);
-    if (!user || !user.resetPasswordTokenHashed || !user.resetPasswordTokenExpiresAt || new Date(user.resetPasswordTokenExpiresAt).getTime() <= Date.now() || Number(user.resetPasswordCount ?? 0) >= 5) throw invalid();
+    const expiresAt = user?.resetPasswordTokenExpiresAt ? new Date(user.resetPasswordTokenExpiresAt).getTime() : NaN;
+    if (!user || !user.resetPasswordTokenHashed || !user.resetPasswordTokenExpiresAt || !Number.isFinite(expiresAt) || expiresAt <= Date.now() || Number(user.resetPasswordCount ?? 0) >= 5) throw invalid();
     const hash = crypto.createHmac("sha256", secret).update(code).digest("hex");
     if (hash !== user.resetPasswordTokenHashed) {
-        user.resetPasswordCount = Number(user.resetPasswordCount ?? 0) + 1;
-        await user.save();
+        await User.updateOne({ _id: user._id, resetPasswordTokenHashed: user.resetPasswordTokenHashed, resetPasswordTokenExpiresAt: user.resetPasswordTokenExpiresAt }, { $inc: { resetPasswordCount: 1 } });
         throw invalid();
     }
-    user.password = await hashPassword(password);
-    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
-    user.resetPasswordTokenHashed = "";
-    user.resetPasswordTokenExpiresAt = "";
-    user.resetPasswordCount = 0;
-    await user.save();
+    const passwordHash = await hashPassword(password);
+    if (expiresAt <= Date.now()) throw invalid();
+    const updated = await User.updateOne(
+        { _id: user._id, resetPasswordTokenHashed: user.resetPasswordTokenHashed, resetPasswordTokenExpiresAt: user.resetPasswordTokenExpiresAt, resetPasswordCount: { $lt: 5 } },
+        { $set: { password: passwordHash, resetPasswordTokenHashed: "", resetPasswordTokenExpiresAt: "", resetPasswordCount: 0 }, $inc: { tokenVersion: 1 } }
+    );
+    if (!updated.modifiedCount) throw invalid();
 }
 
 export const resendVerification = async (email: string): Promise<void> => {
     const user = await User.findOne({ email });
     if (!user || user.isEmailVerified) return;
-    const { token, expiresAt } = createVericationToken();
+    const { token, expiresAt } = createVerificationToken();
     user.verificationToken = token;
     user.verificationTokenExpiresAt = expiresAt?.toString() ?? "";
     await user.save();

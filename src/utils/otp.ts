@@ -1,5 +1,5 @@
 import crypto from "crypto"
-import { createVericationToken } from "./createVerifyToken.ts"
+import { createVerificationToken } from "./createVerificationToken.ts"
 import { AppError } from "../shared/errors/AppError.ts";
 
 
@@ -8,7 +8,7 @@ interface HashedOtp {
     hashOtp: string
 }
 export async function hashedOtp (): Promise<HashedOtp> {
-    const {token} = createVericationToken(); 
+    const {token} = createVerificationToken();
 
     const secret = process.env.OTP_SECRET; 
 

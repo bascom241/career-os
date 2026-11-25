@@ -4,6 +4,9 @@ import { AppError } from "../shared/errors/AppError.ts";
 export function errorHandler(err: Error & { type?: string; status?: number }, res: Response) {
     let status = 500; let code = "INTERNAL_ERROR"; let message = "Internal server error"; let details: object[] | undefined;
     if (err instanceof ZodError) { status = 400; code = "VALIDATION_ERROR"; message = "Invalid request"; details = err.issues.map(issue => ({ path: issue.path.join("."), message: issue.message })); }
+    else if ((err as Error & { code?: string }).code === "LIMIT_FILE_SIZE") { status = 413; code = "PAYLOAD_TOO_LARGE"; message = "File is too large"; }
+    else if (err.name === "MulterError") { status = 400; code = "VALIDATION_ERROR"; message = "Invalid upload"; }
+    else if (err.message === "Unexpected end of form" || err.message === "Multipart: Boundary not found") { status = 400; code = "BAD_REQUEST"; message = "Malformed multipart upload"; }
     else if (err.type === "entity.parse.failed") { status = 400; code = "INVALID_JSON"; message = "Malformed JSON body"; }
     else if (err.type === "entity.too.large") { status = 413; code = "PAYLOAD_TOO_LARGE"; message = "Request body is too large"; }
     else if (err.type === "charset.unsupported" || err.type === "encoding.unsupported") { status = 415; code = "UNSUPPORTED_MEDIA_TYPE"; message = "Unsupported request encoding"; }
